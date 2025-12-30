@@ -1,0 +1,16 @@
+.atc__btn_wrap button {
+    width: 100%;
+    cursor: pointer;
+    text-align: center;
+    background: #000;;
+    border: 1px solid #ffffff6e;
+    padding-block: calc(var(--spacing) * 3);
+    transition: all 0.3s;
+    border-radius: 8px;
+    color: #fff;
+    &:hover {
+    background-color: #fff;;
+    color: #000;   
+    border: 1px solid #000;
+   }
+}

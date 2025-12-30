@@ -4,6 +4,7 @@ import {Image, useOptimisticVariant} from '@shopify/hydrogen';
 import {ProductItem} from '~/components/ProductItem';
 import HeroBanner from '~/components/HeroBanners';
 import { Buttons } from '~/components/Buttons';
+import { FeaturedCollection } from '~/components/FeaturedCollection';
 console.log('[route] ($locale)._index.jsx loaded');
 /**
  * @type {Route.MetaFunction}
@@ -91,32 +92,9 @@ export default function Homepage() {
   return (
     <div className="home">
       <HeroBanner heroBannerContent={data.heroBanner}/>
-      <FeaturedCollection collection={data.featuredCollection} />
-      <RecommendedProducts products={data.recommendedProducts} />
+      <FeaturedCollection products={data.recommendedProducts} />
+      {/* <RecommendedProducts products={data.recommendedProducts} /> */}
     </div>
-  );
-}
-
-/**
- * @param {{
- *   collection: FeaturedCollectionFragment;
- * }}
- */
-function FeaturedCollection({collection}) {
-  if (!collection) return null;
-  const image = collection?.image;
-  return (
-    <Link
-      className="featured-collection"
-      to={`/collections/${collection.handle}`}
-    >
-      {image && (
-        <div className="featured-collection-image">
-          <Image data={image} sizes="100vw" />
-        </div>
-      )}
-      <h1>{collection.title}</h1>
-    </Link>
   );
 }
 
@@ -146,6 +124,8 @@ function RecommendedProducts({products}) {
     </div>
   );
 }
+
+
 
 const HERO_BANNER_BY_HANDLE_QUERY = `
   query HeroBannerByHandle($handle: MetaobjectHandleInput!) {
@@ -223,43 +203,125 @@ const FEATURED_COLLECTION_QUERY = `#graphql
   }
 `;
 
-const RECOMMENDED_PRODUCTS_QUERY = `#graphql
-  fragment RecommendedProduct on Product {
-    id
-    title
-    handle
-    availableForSale
-    selectedOrFirstAvailableVariant {
+  const RECOMMENDED_PRODUCTS_QUERY = `#graphql
+    # Reusable variant fragment with all needed fields
+    fragment RecommendedProductVariant on ProductVariant {
       id
       availableForSale
       selectedOptions {
         name
         value
       }
-    }
-    priceRange {
-      minVariantPrice {
+      price {
         amount
         currencyCode
       }
-    }
-    featuredImage {
-      id
-      url
-      altText
-      width
-      height
-    }
-  }
-  query RecommendedProducts ($country: CountryCode, $language: LanguageCode)
-    @inContext(country: $country, language: $language) {
-    products(first: 4, sortKey: UPDATED_AT, reverse: true) {
-      nodes {
-        ...RecommendedProduct
+      compareAtPrice {
+        amount
+        currencyCode
+      }
+      image {
+        url
+        altText
+        width
+        height
       }
     }
-  }
-`;
+
+    # Main product fragment for recommended grids
+    fragment RecommendedProduct on Product {
+      id
+      title
+      handle
+      availableForSale
+
+      priceRange {
+        minVariantPrice {
+          amount
+          currencyCode
+        }
+      }
+
+      featuredImage {
+        id
+        url
+        altText
+        width
+        height
+      }
+
+      # Default fallback variant (used when no URL params)
+      selectedOrFirstAvailableVariant {
+        ...RecommendedProductVariant
+      }
+
+      # Critical for useOptimisticVariant to find the first *truly* available variant
+      adjacentVariants {
+        ...RecommendedProductVariant
+      }
+
+      # Enhanced options structure — REQUIRED to prevent "optionValues is missing" error
+      options {
+        name
+        optionValues {
+          name
+          firstSelectableVariant {
+            ...RecommendedProductVariant
+          }
+        }
+      }
+    }
+
+    # Main query
+    query RecommendedProducts(
+      $country: CountryCode
+      $language: LanguageCode
+    ) @inContext(country: $country, language: $language) {
+      products(first: 250, sortKey: UPDATED_AT, reverse: true) {
+        nodes {
+          ...RecommendedProduct
+        }
+      }
+    }
+  `;
+
+// const RECOMMENDED_PRODUCTS_QUERY = `#graphql
+//   fragment RecommendedProduct on Product {
+//     id
+//     title
+//     handle
+//     availableForSale
+//     selectedOrFirstAvailableVariant {
+//       id
+//       availableForSale
+//       selectedOptions {
+//         name
+//         value
+//       }
+//     }
+//     priceRange {
+//       minVariantPrice {
+//         amount
+//         currencyCode
+//       }
+//     }
+//     featuredImage {
+//       id
+//       url
+//       altText
+//       width
+//       height
+//     }
+//   }
+//   query RecommendedProducts ($country: CountryCode, $language: LanguageCode)
+//     @inContext(country: $country, language: $language) {
+//     products(first: 4, sortKey: UPDATED_AT, reverse: true) {
+//       nodes {
+//         ...RecommendedProduct
+//       }
+//     }
+//   }
+// `;
 
 /** @typedef {import('./+types/_index').Route} Route */
 /** @typedef {import('storefrontapi.generated').FeaturedCollectionFragment} FeaturedCollectionFragment */
