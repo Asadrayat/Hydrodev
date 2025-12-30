@@ -1,6 +1,8 @@
 import {Link} from 'react-router';
-import {Image, Money} from '@shopify/hydrogen';
+import {CartForm, getAdjacentAndFirstAvailableVariants, Image, Money, useOptimisticVariant} from '@shopify/hydrogen';
 import {useVariantUrl} from '~/lib/variants';
+import { AddToCartButton } from './AddToCartButton';
+import { useAside } from './Aside';
 
 /**
  * @param {{
@@ -13,28 +15,52 @@ import {useVariantUrl} from '~/lib/variants';
  */
 export function ProductItem({product, loading}) {
   const variantUrl = useVariantUrl(product.handle);
+  const {open} = useAside();
   const image = product.featuredImage;
+  const selectedVariant = product.selectedOrFirstAvailableVariant;
+ 
   return (
-    <Link
-      className="product-item"
-      key={product.id}
-      prefetch="intent"
-      to={variantUrl}
-    >
-      {image && (
-        <Image
-          alt={image.altText || product.title}
-          aspectRatio="1/1"
-          data={image}
-          loading={loading}
-          sizes="(min-width: 45em) 400px, 100vw"
-        />
-      )}
-      <h4>{product.title}</h4>
-      <small>
-        <Money data={product.priceRange.minVariantPrice} />
-      </small>
-    </Link>
+    <div className='product-item'>
+      <Link
+        className=""
+        key={product.id}
+        prefetch="intent"
+        to={variantUrl}
+      >
+        {image && (
+          <Image
+            alt={image.altText || product.title}
+            aspectRatio="1/1"
+            data={image}
+            loading={loading}
+            sizes="(min-width: 45em) 400px, 100vw"
+          />
+        )}
+        <h4>{product.title}</h4>
+        <small>
+          <Money data={product.priceRange.minVariantPrice} />
+        </small>
+      </Link>
+      <AddToCartButton
+        disabled={!selectedVariant || !selectedVariant.availableForSale}
+        onClick={() => {
+          open('cart');
+        }}
+        lines={
+          selectedVariant
+            ? [
+                {
+                  merchandiseId: selectedVariant.id,
+                  quantity: 1,
+                  selectedVariant,
+                },
+              ]
+            : []
+        }
+      >
+        {selectedVariant?.availableForSale ? 'Add to cart' : 'Sold out'}
+      </AddToCartButton>
+    </div>
   );
 }
 

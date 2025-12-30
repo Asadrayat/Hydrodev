@@ -4,3 +4,5 @@
  */
 
 @import 'tailwindcss';
+
+/* Removed invalid @plugin directive. DaisyUI should be configured in tailwind.config.js */

@@ -11,6 +11,8 @@ import {ProductPrice} from '~/components/ProductPrice';
 import {ProductImage} from '~/components/ProductImage';
 import {ProductForm} from '~/components/ProductForm';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
+import { ProductGallery } from '~/components/ProductGallary';
+
 
 /**
  * @type {Route.MetaFunction}
@@ -107,7 +109,8 @@ export default function Product() {
 
   return (
     <div className="product">
-      <ProductImage image={selectedVariant?.image} />
+      {/* <ProductImage product={product} image={selectedVariant?.image} /> */}
+      <ProductGallery product={product} selectedVariant={selectedVariant}/>
       <div className="product-main">
         <h1>{title}</h1>
         <ProductPrice
@@ -184,16 +187,60 @@ const PRODUCT_VARIANT_FRAGMENT = `#graphql
   }
 `;
 
+const PRODUCT_MEDIA_FRAGMENT = `#graphql
+  fragment ProductMediaFields on Media {
+    mediaContentType
+    alt
+
+    ... on MediaImage {
+      id
+      image {
+        url
+        altText
+        width
+        height
+      }
+    }
+
+    ... on Video {
+      id
+      sources {
+        url
+        mimeType
+        format
+        height
+        width
+      }
+    }
+
+    ... on Model3d {
+      id
+      sources {
+        url
+        mimeType
+        format
+      }
+    }
+
+    ... on ExternalVideo {
+      id
+      embeddedUrl
+      host
+    }
+  }
+`;
+
 const PRODUCT_FRAGMENT = `#graphql
   fragment Product on Product {
     id
     title
+    availableForSale
     vendor
     handle
     descriptionHtml
     description
     encodedVariantExistence
-    encodedVariantAvailability
+    encodedVariantAvailability  
     options {
       name
       optionValues {
@@ -217,12 +264,20 @@ const PRODUCT_FRAGMENT = `#graphql
     adjacentVariants (selectedOptions: $selectedOptions) {
       ...ProductVariant
     }
+    media(first: 250) {
+      edges {
+        node {
+          ...ProductMediaFields
+        }
+      }
+    }      
     seo {
       description
       title
     }
   }
   ${PRODUCT_VARIANT_FRAGMENT}
+  ${PRODUCT_MEDIA_FRAGMENT}
 `;
 
 const PRODUCT_QUERY = `#graphql

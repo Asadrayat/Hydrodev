@@ -1,8 +1,10 @@
 import {Await, useLoaderData, Link} from 'react-router';
 import {Suspense} from 'react';
-import {Image} from '@shopify/hydrogen';
+import {Image, useOptimisticVariant} from '@shopify/hydrogen';
 import {ProductItem} from '~/components/ProductItem';
-
+import HeroBanner from '~/components/HeroBanners';
+import { Buttons } from '~/components/Buttons';
+console.log('[route] ($locale)._index.jsx loaded');
 /**
  * @type {Route.MetaFunction}
  */
@@ -14,6 +16,7 @@ export const meta = () => {
  * @param {Route.LoaderArgs} args
  */
 export async function loader(args) {
+  console.log('[loader] start loader');
   // Start fetching non-critical data without blocking time to first byte
   const deferredData = loadDeferredData(args);
 
@@ -22,20 +25,43 @@ export async function loader(args) {
 
   return {...deferredData, ...criticalData};
 }
+async function loadBannerMeta({ context }) {
 
+  const data = await context.storefront.query(HERO_BANNER_BY_HANDLE_QUERY, {
+    variables: {
+      handle: {
+        type: "hero_banner",
+        handle: "homepage-hero-banner", // <-- your metaobject handle
+      },
+    },
+  });
+
+  return data;
+}
 /**
  * Load data necessary for rendering content above the fold. This is the critical data
  * needed to render the page. If it's unavailable, the whole page should 400 or 500 error.
  * @param {Route.LoaderArgs}
  */
 async function loadCriticalData({context}) {
-  const [{collections}] = await Promise.all([
+  console.log('[loadCriticalData] start');
+
+  const [{collections}, heroBanner] = await Promise.all([
     context.storefront.query(FEATURED_COLLECTION_QUERY),
+    loadBannerMeta({ context }),
     // Add other queries here, so that they are loaded in parallel
   ]);
-
+  console.log(
+    '[loadCriticalData] featuredCollection title:',
+    collections?.nodes?.[0]?.title,
+  );
+  console.log(
+    '[loadCriticalData] heroBanner has metaobject:',
+    !!heroBanner?.metaobject,
+  );
   return {
     featuredCollection: collections.nodes[0],
+    heroBanner,
   };
 }
 
@@ -64,6 +90,7 @@ export default function Homepage() {
   const data = useLoaderData();
   return (
     <div className="home">
+      <HeroBanner heroBannerContent={data.heroBanner}/>
       <FeaturedCollection collection={data.featuredCollection} />
       <RecommendedProducts products={data.recommendedProducts} />
     </div>
@@ -108,7 +135,7 @@ function RecommendedProducts({products}) {
             <div className="recommended-products-grid">
               {response
                 ? response.products.nodes.map((product) => (
-                    <ProductItem key={product.id} product={product} />
+                    <ProductItem key={product.id} product={product}  />
                   ))
                 : null}
             </div>
@@ -119,6 +146,59 @@ function RecommendedProducts({products}) {
     </div>
   );
 }
+
+const HERO_BANNER_BY_HANDLE_QUERY = `
+  query HeroBannerByHandle($handle: MetaobjectHandleInput!) {
+    metaobject(handle: $handle) {
+      type
+      handle
+      caption: field(key: "caption") {
+        value
+      }
+      title: field(key: "title") {
+        value
+      }
+      subtitle: field(key: "subtitle") {
+        value
+      }
+
+      desktopImage: field(key: "image_desktop") {
+        reference {
+          __typename
+          ... on MediaImage {
+            image {
+              url
+              altText
+              width
+              height
+            }
+          }
+        }
+      }
+
+      mobileImage: field(key: "image_mobile") {
+        reference {
+          __typename
+          ... on MediaImage {
+            image {
+              url
+              altText
+              width
+              height
+            }
+          }
+        }
+      }
+
+      ctaLabel: field(key: "cta_label") {
+        value
+      }
+      ctaUrl: field(key: "cta_url") {
+        value
+      }
+    }
+  }
+`;
 
 const FEATURED_COLLECTION_QUERY = `#graphql
   fragment FeaturedCollection on Collection {
@@ -148,6 +228,15 @@ const RECOMMENDED_PRODUCTS_QUERY = `#graphql
     id
     title
     handle
+    availableForSale
+    selectedOrFirstAvailableVariant {
+      id
+      availableForSale
+      selectedOptions {
+        name
+        value
+      }
+    }
     priceRange {
       minVariantPrice {
         amount
